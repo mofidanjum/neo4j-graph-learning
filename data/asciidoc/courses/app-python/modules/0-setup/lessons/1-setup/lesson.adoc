@@ -1,0 +1,94 @@
+= Exploring the Project
+:type: challenge
+:order: 1
+:python-version: v3.10
+:lab: {repository-link}
+:language: Python
+:disable-cache: true
+
+
+include::{shared}/courses/gitpod/introduction.adoc[leveloffset=+1]
+
+== Explore the Repository
+
+You can open the repository by clicking the link below:
+
+lab::Explore Repository in GitPod[]
+
+Here are some of the important directories in the project:
+
+* `example/` - Example code for working with the driver.
+* `api/` - The application code:
+** `dao/` - Data Access Objects which will be modified to communicate with Neo4j
+** `middleware/` - Some custom middleware functions that are used by Flask throughout the request lifecycle
+** `routes/` - Route handlers that are registered on the server.  You shouldn't need to edit these files.
+* `public/` - Minified build files for the SPA.  *Do not edit these files*.
+
+
+
+// == Setting Environment Variables
+
+// [source,sh]
+// cp .env.example .env
+
+// Your .env file should have the following settings:
+
+// .Example .env File
+// [source,env]
+// ----
+// FLASK_APP=api                       # <1>
+// FLASK_DEBUG=true                    # <2>
+// FLASK_RUN_PORT=3000                 # <3>
+// JWT_SECRET=secret                   # <4>
+// SALT_ROUNDS=10                      # <5>
+
+// NEO4J_URI=neo4j://localhost:7687    # <6>
+// NEO4J_USERNAME=neo4j                # <7>
+// NEO4J_PASSWORD=password             # <8>
+// ----
+
+// 1. `FLASK_APP` tells Flask to use the application in the `api/` folder
+// 2. Run Flask in Development Mode
+// 3. Run the server on port `3000`
+// 4. A secret key for signing JWT tokens - This can be a random string of letters and numbers
+// 5. The cost parameter used when hashing passwords
+// 6. The URI for your Neo4j Sandbox instance, we will set this in the next lesson
+// 7. The username for your Neo4j Sandbox instance
+// 8. The password for your Neo4j Sandbox instance
+
+== Course Challenges
+
+For each challenge, you will be provided with a link to re-open the correct file within the repository.
+Clicking these links will also set the credentials
+load environment variables for your link:https://sandbox.neo4j.com[Neo4j Sandbox^] instance.
+
+== Your Sandbox Instance
+
+include::{shared}/courses/apps/sandbox.adoc[tag="info",leveloffset=+]
+
+=== Accessing Your Sandbox Credentials
+
+Your sandbox credentials can be accessed within the project through the `os.getenv()` function.
+
+.Accessing Environment Variables
+[source,python,role=nocopy]
+----
+import os
+
+NEO4J_URI=os.getenv('NEO4J_URI')
+NEO4J_USERNAME=os.getenv('NEO4J_USERNAME')
+NEO4J_PASSWORD=os.getenv('NEO4J_PASSWORD')
+----
+
+include::{shared}/courses/apps/run-locally.adoc[]
+
+== Done!
+
+Once you are ready, click the button below to complete this lesson.
+
+read::Advance to Next Lesson[]
+
+[.summary]
+== Next Steps
+
+Now that we have the project up and running, let's take a look at the Neo4j Sandbox instance that has been created as part of your enrollment in this course.

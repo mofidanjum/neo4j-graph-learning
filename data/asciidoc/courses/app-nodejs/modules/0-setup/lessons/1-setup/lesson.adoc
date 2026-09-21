@@ -1,0 +1,65 @@
+= Exploring the Project
+:type: challenge
+:order: 1
+:node-version: v16.15.1
+:lab: {repository-link}
+:language: JavaScript
+:disable-cache: true
+
+include::{shared}/courses/gitpod/introduction.adoc[leveloffset=+1]
+
+== Explore the Repository
+
+You can open the repository by clicking the link below:
+
+lab::Explore Repository in GitPod[]
+
+Here are some of the important directories in the project:
+
+// * `.env` - This file holds environment variables for the server and is parsed by the link:https://www.npmjs.com/package/dotenv[`dotenv`^] library.
+* `example/` - Example code for driver instantiation.
+* `src/` - The application code:
+** `middleware/` - Some custom middleware functions that are used by Express including generic error handling.
+** `passport/` - Logic required for user authentication.
+** `routes/` - Route handlers that are registered on the server.  You shouldn't need to edit these files.
+** `services/` - Services that you will need to update to interact with Neo4j.
+* `test/` - Test files that will you will need to run in order to pass the test.  You will run these using the `npm run test` or `yarn run test` command.
+* `public/` - Minified build files for the SPA.  *Do not edit these files*.
+
+
+== Course Challenges
+
+For each challenge, you will be provided with a link to re-open the correct file within the repository.
+Clicking these links will also set the credentials
+load environment variables for your link:https://sandbox.neo4j.com[Neo4j Sandbox^] instance.
+
+== Your Sandbox Instance
+
+include::{shared}/courses/apps/sandbox.adoc[tag="info"]
+
+=== Accessing Your Sandbox Credentials
+
+Your sandbox credentials can be accessed within the project through the `process.env` variable.
+
+.Accessing Environment Variables
+[source,js,role=nocopy]
+----
+const {
+  NEO4J_URI,
+  NEO4J_USERNAME,
+  NEO4J_PASSWORD,
+} = process.env
+----
+
+include::{shared}/courses/apps/locally.adoc[]
+
+== Done!
+
+Once you are ready, click the button below to complete this lesson.
+
+read::Advance to Next Lesson[]
+
+
+// == Summary
+
+include::{shared}/courses/apps/sandbox.adoc[tags="summary"]

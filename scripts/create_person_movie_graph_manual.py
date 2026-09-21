@@ -1,5 +1,6 @@
 import os
 
+import requests
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
@@ -8,6 +9,31 @@ load_dotenv()
 URI = os.environ["NEO4J_URI"]
 USERNAME = os.environ["NEO4J_USERNAME"]
 PASSWORD = os.environ["NEO4J_PASSWORD"]
+HUGGINGFACE_API_TOKEN = os.environ["HUGGINGFACE_API_TOKEN"]
+
+POSTER_EMBEDDING_DIMENSIONS = 512
+HF_CLIP_MODEL_URL = "https://api-inference.huggingface.co/models/openai/clip-vit-base-patch32"
+
+
+def poster_url_for(title):
+    slug = title.lower().replace(" ", "-")
+    return f"https://picsum.photos/seed/{slug}/300/450"
+
+
+def embed_poster(poster_url):
+    image_bytes = requests.get(poster_url, timeout=10).content
+    response = requests.post(
+        HF_CLIP_MODEL_URL,
+        headers={"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"},
+        data=image_bytes,
+        timeout=30,
+    )
+    response.raise_for_status()
+    embedding = response.json()
+    # Some models return one vector per image patch; average them into a single vector.
+    if isinstance(embedding[0], list):
+        embedding = [sum(values) / len(values) for values in zip(*embedding)]
+    return embedding
 
 
 def main():
@@ -50,6 +76,33 @@ def main():
         _, directed_summary, _ = driver.execute_query(directed_cypher, rows=directed_rows)
         print("DIRECTED — nodes created:", directed_summary.counters.nodes_created)
         print("DIRECTED — relationships created:", directed_summary.counters.relationships_created)
+
+        movies = {row["movie_id"]: row["movie_title"] for row in acted_in_rows + directed_rows}
+
+        poster_rows = []
+        for movie_id, title in movies.items():
+            poster_url = poster_url_for(title)
+            print(f"Embedding poster for {title} via Hugging Face API...")
+            embedding = embed_poster(poster_url)
+            poster_rows.append({"movie_id": movie_id, "poster_url": poster_url, "embedding": embedding})
+
+        poster_cypher = """
+        UNWIND $rows AS row
+        MATCH (m:Movie {id: row.movie_id})
+        SET m.poster_url = row.poster_url, m.poster_embedding = row.embedding
+        """
+        driver.execute_query(poster_cypher, rows=poster_rows)
+        print(f"Set poster_url and poster_embedding on {len(poster_rows)} movies.")
+
+        driver.execute_query(f"""
+        CREATE VECTOR INDEX movie_poster_embedding IF NOT EXISTS
+        FOR (m:Movie) ON (m.poster_embedding)
+        OPTIONS {{indexConfig: {{
+          `vector.dimensions`: {POSTER_EMBEDDING_DIMENSIONS},
+          `vector.similarity_function`: 'cosine'
+        }}}}
+        """)
+        print("Ensured vector index movie_poster_embedding exists.")
 
         read_cypher = """
         MATCH (p:Person)-[r]->(m:Movie)

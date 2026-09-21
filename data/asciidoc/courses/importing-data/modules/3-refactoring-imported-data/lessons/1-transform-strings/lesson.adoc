@@ -1,0 +1,53 @@
+= Viewing Property Types Stored in the Graph
+:type: quiz
+:path: main/modules/3-refactoring-imported-data/lessons/1-transform-strings
+
+[.video]
+video::tTkc-p0wjIA[youtube,width=560,height=315]
+
+//https://youtu.be/tTkc-p0wjIA
+
+[.transcript]
+
+=== Confirming types in the graph
+
+Neo4j Browser returns datetime properties as strings and it is sometimes hard to determine what the type stored in the graph is.
+
+For example, here we return the _born_ property of five _Person_ nodes.
+
+image::{repository-raw}/{path}/images/return-new-born-property.png[Born property,width=600,align=center]
+
+In Neo4j Browser, the _born_ property appears like a string, but it is not a string.
+We can actually extract the year from the property because it is a datetime:
+
+image::{repository-raw}/{path}/images/return-year-of-born-property.png[Born property year,width=600,align=center]
+
+As you move closer to the data model, you may want to confirm that the properties in the graph represent the types in the data model.
+
+You can use this Cypher code to show the stored types for the node properties in the graph:
+
+[source,Cypher]
+----
+include::{repository-raw}/main/shared/apoc-meta-nodetypeproperties.cypher[]
+----
+
+image::{repository-raw}/{path}/images/return-node-types.png[Meta types of node properties,width=600,align=center]
+
+And you can do the same type of investigation of types for relationship properties:
+
+[source,Cypher]
+----
+include::{repository-raw}/main/shared/apoc-meta-reltypeproperties.cypher[]
+----
+
+image::{repository-raw}/{path}/images/return-rel-types.png[Meta types of relationship properties,width=600,align=center]
+
+== Check your understanding
+
+include::questions/2-string-to-date.adoc[leveloffset=+1]
+
+[.summary]
+== Summary
+
+In this lesson, you learned about some of transformations you need to do to load CSV data into your graph where the data types match the graph data model.
+In the next challenge, you practice transforming data the data that you previously imported from  CSV files.
