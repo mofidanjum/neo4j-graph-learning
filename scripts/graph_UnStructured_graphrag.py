@@ -14,15 +14,16 @@ from neo4j import GraphDatabase
 from neo4j_graphrag.components.text_splitters.fixed_size_splitter import FixedSizeSplitter
 from neo4j_graphrag.embeddings.base import Embedder
 from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
-from neo4j_graphrag.indexes import create_vector_index
+from neo4j_graphrag.generation import GraphRAG
 from neo4j_graphrag.llm import AnthropicLLM
+from neo4j_graphrag.retrievers import Text2CypherRetriever, VectorCypherRetriever
+from neo4j_graphrag.schema import get_schema
 
 load_dotenv()
 NEO4J_URI = os.environ["NEO4J_URI"]
 NEO4J_USERNAME = os.environ["NEO4J_USERNAME"]
 NEO4J_PASSWORD = os.environ["NEO4J_PASSWORD"]
 HUGGINGFACE_API_TOKEN = os.environ["HUGGINGFACE_API_TOKEN"]
-EMBEDDING_SIZE = 384  # must match the embedding model in HuggingFaceEmbedder below
 
 # A second file this time, so it doesn't collide with what graph_UnStructured.py already saved.
 FILE_PATH = "data/asciidoc/courses/30-days/modules/1-introduction/lessons/day-2-running-neo4j/lesson.adoc"
@@ -87,17 +88,12 @@ with open(FILE_PATH, encoding="utf-8") as file:
 result = asyncio.run(kg_builder.run_async(text=file_text))
 print(result)
 
-# The pipeline saved embeddings onto Chunk nodes but didn't index them - do that now
-# (IF NOT EXISTS equivalent via fail_if_exists=False, so this is safe to rerun).
-create_vector_index(
-    driver,
-    name="graphrag_chunk_embedding",
-    label="Chunk",
-    embedding_property="embedding",
-    dimensions=EMBEDDING_SIZE,
-    similarity_fn="cosine",
-    fail_if_exists=False,
-)
+# The pipeline saved embeddings onto Chunk nodes but didn't index them - normally
+# we'd create one here, but graph_UnStructured.py already created a vector index
+# named "chunk_embedding" on this exact (Chunk, embedding) combination - Neo4j
+# treats a second index on the same label+property as redundant and won't create
+# it, so we just reuse the existing one instead (see CHUNK_VECTOR_INDEX below).
+CHUNK_VECTOR_INDEX = "chunk_embedding"
 
 print("Done. Check Neo4j for the new nodes from this file.")
 
@@ -118,5 +114,60 @@ entity_records, _, _ = driver.execute_query(
 print(f"\nEntities created ({len(entity_records)}):")
 for record in entity_records:
     print(record["labels"], record["name"])
+
+# --- VectorCypherRetriever: vector search + graph traversal in one query ---
+#
+# "node" refers to whatever the vector search matched (a Chunk, here). The
+# retrieval_query runs FOR EACH match, so we can pull in extra graph context.
+# We must include node.text too - without it, the LLM only sees entity names
+# and has no actual passage content to answer from.
+retrieval_query = """
+OPTIONAL MATCH (node)<-[:FROM_CHUNK]-(entity)
+WITH node, collect(DISTINCT entity.name) AS entities
+RETURN node.text AS text, entities
+"""
+
+retriever = VectorCypherRetriever(
+    driver,
+    index_name=CHUNK_VECTOR_INDEX,
+    retrieval_query=retrieval_query,
+    embedder=embedder,
+)
+
+# --- GraphRAG: the full RAG loop ---
+#
+# GraphRAG.search() calls our retriever internally to fetch context, then hands
+# that context + the question to the LLM to generate a real answer - one call
+# does both retrieval and generation.
+rag = GraphRAG(retriever=retriever, llm=llm)
+
+query_text = input("Ask a question: ")
+response = rag.search(
+    query_text=query_text,
+    retriever_config={"top_k": 5},
+    return_context=True,
+)
+print(f"\nGraphRAG answer for: {query_text!r}")
+print(response.answer)
+
+# --- Text2CypherRetriever: no vector search, just LLM-written Cypher ---
+#
+# Good for precise/structured questions (counts, filters) that vector similarity
+# can't answer well - e.g. "how many patients take insulin?" instead of "find
+# text similar to insulin." get_schema() describes your database's labels,
+# relationships and properties so the LLM knows what it can query against.
+neo4j_schema = get_schema(driver)
+
+text2cypher_retriever = Text2CypherRetriever(
+    driver=driver,
+    llm=llm,
+    neo4j_schema=neo4j_schema,
+)
+
+cypher_question = input("\nAsk a structured question (e.g. a count or filter): ")
+cypher_results = text2cypher_retriever.search(query_text=cypher_question)
+print("\nText2CypherRetriever results:")
+for item in cypher_results.items:
+    print(item.content)
 
 driver.close()
